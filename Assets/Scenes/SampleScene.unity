@@ -129,9 +129,9 @@ GameObject:
   m_Component:
   - component: {fileID: 224798879}
   - component: {fileID: 224798881}
-  - component: {fileID: 224798884}
   - component: {fileID: 224798883}
   - component: {fileID: 224798882}
+  - component: {fileID: 224798885}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -227,7 +227,12 @@ MonoBehaviour:
   wallJumpAwayForce: 5.5
   reattachDelay: 0.2
   jumpKey: 32
---- !u!114 &224798884
+  vaultCheckHeight: 1.1
+  vaultForwardCheck: 0.8
+  vaultDropCheck: 2
+  vaultForwardForce: 5.5
+  vaultUpForce: 4.5
+--- !u!114 &224798885
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -236,13 +241,30 @@ MonoBehaviour:
   m_GameObject: {fileID: 224798877}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 932bc89a176f6b543b652de790ce5d75, type: 3}
+  m_Script: {fileID: 11500000, guid: 6dea231ee99a82749b343ba046f247a0, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BaseCharacter
-  maxHealth: 100
-  health: 0
-  manaSystem: {fileID: 0}
-  cooldownSystem: {fileID: 0}
+  m_EditorClassIdentifier: Assembly-CSharp::MolotovAbility
+  cooldown: 6
+  owner: {fileID: 0}
+  throwOrigin: {fileID: 1112444939}
+  aimOrigin: {fileID: 1112444939}
+  activationMouseButton: 1
+  throwForce: 18
+  upwardForce: 4
+  maxAimDistance: 100
+  aimMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  impactDamage: 35
+  explosionRadius: 4
+  explosionDamage: 30
+  fireDuration: 6
+  fireRadius: 4.5
+  fireDamagePerTick: 8
+  fireTickInterval: 0.5
+  projectileLifetime: 8
+  projectileRadius: 0.2
+  damageOwner: 0
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0

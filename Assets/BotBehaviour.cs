@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(Collider))]
 public class BotBehaviour : MonoBehaviour
 {
     public enum BotTeam
@@ -20,13 +21,14 @@ public class BotBehaviour : MonoBehaviour
     [Header("Identity")]
     [SerializeField] private BotTeam team = BotTeam.Enemy;
     [SerializeField] private BotRole role = BotRole.Standard;
+    [SerializeField] private bool useRolePresetStats = false;
 
     [Header("Combat")]
-    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private float maxHealth = 700f;
     [SerializeField] private float moveSpeed = 3.5f;
     [SerializeField] private float attackRange = 8f;
-    [SerializeField] private float attackDamage = 12f;
-    [SerializeField] private float attackCooldown = 1.1f;
+    [SerializeField] private float attackDamage = 50f;
+    [SerializeField] private float attackCooldown = 1f;
     [SerializeField] private float detectionRange = 16f;
     [SerializeField] private float preferredDistance = 6f;
     [SerializeField] private float rotationSpeed = 8f;
@@ -39,6 +41,7 @@ public class BotBehaviour : MonoBehaviour
     [SerializeField] private LayerMask obstacleMask = ~0;
 
     private BotBehaviour currentTarget;
+    private CharacterController characterController;
     private float currentHealth;
     private float attackTimer;
     private int patrolIndex;
@@ -69,7 +72,11 @@ public class BotBehaviour : MonoBehaviour
 
     private void Awake()
     {
-        ApplyRolePreset();
+        characterController = GetComponent<CharacterController>();
+        if (useRolePresetStats)
+        {
+            ApplyRolePreset();
+        }
         currentHealth = maxHealth;
     }
 
@@ -97,7 +104,11 @@ public class BotBehaviour : MonoBehaviour
 
         if (currentTarget == null || currentTarget.IsDead || currentTarget.Team == team)
         {
-            currentTarget = FindNearestEnemy();
+            currentTarget = FindNearestEnemy(detectionRange);
+            if (currentTarget == null && !HasPatrolRoute())
+            {
+                currentTarget = FindNearestEnemy(Mathf.Infinity);
+            }
         }
 
         if (currentTarget == null)
@@ -128,11 +139,11 @@ public class BotBehaviour : MonoBehaviour
     {
         if (role == BotRole.Tank)
         {
-            maxHealth = 280f;
+            maxHealth = 600f;
             moveSpeed = 2.4f;
             attackRange = 9f;
-            attackDamage = 24f;
-            attackCooldown = 1.6f;
+            attackDamage = 50f;
+            attackCooldown = 1f;
             detectionRange = 18f;
             preferredDistance = 5f;
             splashRadius = 3f;
@@ -140,10 +151,10 @@ public class BotBehaviour : MonoBehaviour
         }
         else if (team == BotTeam.Ally)
         {
-            maxHealth = 120f;
+            maxHealth = 300f;
             moveSpeed = 3.8f;
             attackRange = 10f;
-            attackDamage = 14f;
+            attackDamage = 50f;
             attackCooldown = 1f;
             detectionRange = 18f;
             preferredDistance = 7f;
@@ -152,11 +163,11 @@ public class BotBehaviour : MonoBehaviour
         }
         else
         {
-            maxHealth = 100f;
+            maxHealth = 300f;
             moveSpeed = 3.4f;
             attackRange = 9f;
-            attackDamage = 12f;
-            attackCooldown = 1.1f;
+            attackDamage = 50f;
+            attackCooldown = 1f;
             detectionRange = 16f;
             preferredDistance = 6f;
             splashRadius = 0f;
@@ -180,10 +191,10 @@ public class BotBehaviour : MonoBehaviour
         }
     }
 
-    private BotBehaviour FindNearestEnemy()
+    private BotBehaviour FindNearestEnemy(float searchRange)
     {
         BotBehaviour bestTarget = null;
-        var bestDistance = detectionRange;
+        var bestDistance = searchRange;
 
         for (var i = 0; i < ActiveBots.Count; i++)
         {
@@ -249,32 +260,69 @@ public class BotBehaviour : MonoBehaviour
 
     private void Patrol()
     {
+        if (!HasPatrolRoute())
+        {
+            return;
+        }
+
+        for (var attempts = 0; attempts < patrolPoints.Length; attempts++)
+        {
+            var patrolTarget = patrolPoints[patrolIndex];
+            if (patrolTarget != null)
+            {
+                MoveTowards(patrolTarget.position);
+                FaceTowards(patrolTarget.position);
+
+                if (FlatDistance(transform.position, patrolTarget.position) <= patrolPointReachDistance)
+                {
+                    patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
+                }
+
+                return;
+            }
+
+            patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
+        }
+    }
+
+    private bool HasPatrolRoute()
+    {
         if (patrolPoints == null || patrolPoints.Length == 0)
         {
-            return;
+            return false;
         }
 
-        var patrolTarget = patrolPoints[patrolIndex];
-        if (patrolTarget == null)
+        for (var i = 0; i < patrolPoints.Length; i++)
         {
-            patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
-            return;
+            if (patrolPoints[i] != null)
+            {
+                return true;
+            }
         }
 
-        MoveTowards(patrolTarget.position);
-        FaceTowards(patrolTarget.position);
-
-        if (FlatDistance(transform.position, patrolTarget.position) <= patrolPointReachDistance)
-        {
-            patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
-        }
+        return false;
     }
 
     private void MoveTowards(Vector3 worldPosition)
     {
         var target = new Vector3(worldPosition.x, transform.position.y, worldPosition.z);
-        var nextPosition = Vector3.MoveTowards(transform.position, target, moveSpeed * Time.deltaTime);
-        transform.position = nextPosition;
+        var direction = target - transform.position;
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        var step = direction.normalized * moveSpeed * Time.deltaTime;
+
+        if (characterController != null && characterController.enabled)
+        {
+            characterController.Move(step);
+            return;
+        }
+
+        transform.position = transform.position + step;
     }
 
     private void MoveAwayFrom(Vector3 worldPosition)

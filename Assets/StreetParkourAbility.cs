@@ -42,6 +42,8 @@ public class StreetParkourAbility : Ability
 
     public bool IsWallClimbing => isWallClimbing;
     public bool IsMovementOverridden => isWallClimbing || externalVelocityActive;
+    public override string AbilityDisplayName => "Street Parkour";
+    public override string AbilityBindingLabel => "Move Into Wall";
 
     protected void Awake()
     {
@@ -60,7 +62,8 @@ public class StreetParkourAbility : Ability
             visualRoot = transform;
         }
 
-        cooldown = 0f;
+        AbilityHudOverlay.EnsureFor(gameObject);
+        cooldown = Mathf.Max(0f, cooldown);
         climbTimeRemaining = maxClimbDuration;
     }
 
@@ -125,7 +128,7 @@ public class StreetParkourAbility : Ability
 
     public override bool CanUse()
     {
-        return climbTimeRemaining > 0f && reattachTimer <= 0f;
+        return base.CanUse() && climbTimeRemaining > 0f && reattachTimer <= 0f;
     }
 
     protected override void Activate()
