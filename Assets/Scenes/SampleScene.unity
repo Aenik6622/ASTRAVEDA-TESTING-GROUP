@@ -196,6 +196,7 @@ MonoBehaviour:
   speed: 6.5
   gravity: -10
   jumpHeight: 1.5
+  inputDeadzone: 0.1
 --- !u!114 &224798883
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -220,9 +221,9 @@ MonoBehaviour:
   maxClimbDuration: 9999
   wallClimbSpeed: 10
   wallSlideSpeed: -1.5
-  gravity: -20
+  gravity: -10
   wallStickForce: 3
-  wallJumpUpForce: 7.5
+  wallJumpUpForce: 9
   wallJumpAwayForce: 5.5
   reattachDelay: 0.2
   jumpKey: 32
@@ -238,6 +239,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 932bc89a176f6b543b652de790ce5d75, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BaseCharacter
+  maxHealth: 100
+  health: 0
+  manaSystem: {fileID: 0}
+  cooldownSystem: {fileID: 0}
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -608,8 +613,8 @@ Transform:
   m_GameObject: {fileID: 490717293}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 5, z: 8}
-  m_LocalScale: {x: 12, y: 10, z: 1}
+  m_LocalPosition: {x: 0, y: 50, z: 50}
+  m_LocalScale: {x: 100, y: 100, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -806,7 +811,7 @@ Transform:
   m_GameObject: {fileID: 1112444938}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.6, z: 0}
+  m_LocalPosition: {x: 0, y: 1.6, z: -1.09}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

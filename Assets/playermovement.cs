@@ -5,40 +5,55 @@ public class PlayerMovement : MonoBehaviour
     public float speed = 6f;
     public float gravity = -9.81f;
     public float jumpHeight = 1.5f;
+    public float inputDeadzone = 0.1f;
 
-    CharacterController controller;
-    Vector3 velocity;
-    bool isGrounded;
+    private CharacterController controller;
+    private StreetParkourAbility streetParkourAbility;
+    private Vector3 velocity;
+    private bool isGrounded;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        streetParkourAbility = GetComponent<StreetParkourAbility>();
     }
 
     void Update()
     {
-        // Check if grounded
         isGrounded = controller.isGrounded;
 
-        if (isGrounded && velocity.y < 0)
+        float x = Input.GetAxisRaw("Horizontal");
+        float z = Input.GetAxisRaw("Vertical");
+
+        if (Mathf.Abs(x) < inputDeadzone)
         {
-            velocity.y = -2f;
+            x = 0f;
         }
 
-        // Movement
-        float x = Input.GetAxis("Horizontal");
-        float z = Input.GetAxis("Vertical");
+        if (Mathf.Abs(z) < inputDeadzone)
+        {
+            z = 0f;
+        }
 
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * speed * Time.deltaTime);
 
-        // Jump
+        if (streetParkourAbility != null && streetParkourAbility.IsWallClimbing)
+        {
+            velocity.y = 0f;
+            return;
+        }
+
+        if (isGrounded && velocity.y < 0f)
+        {
+            velocity.y = -2f;
+        }
+
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
-        // Gravity
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }

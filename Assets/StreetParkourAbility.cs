@@ -12,8 +12,8 @@ public class StreetParkourAbility : Ability
 
     [Header("Wall Detection")]
     [SerializeField] private LayerMask climbableLayers = ~0;
-    [SerializeField] private float wallCheckDistance = 0.9f;
-    [SerializeField] private float minWallApproachDot = 0.15f;
+    [SerializeField] private float wallCheckDistance = 1.1f;
+    [SerializeField] private float minWallApproachDot = 0.1f;
 
     [Header("Climb Tuning")]
     [SerializeField] private float maxClimbDuration = 2.2f;
@@ -30,7 +30,10 @@ public class StreetParkourAbility : Ability
     private float climbTimeRemaining;
     private float reattachTimer;
     private bool isWallClimbing;
+    private bool externalVelocityActive;
     private RaycastHit currentWallHit;
+
+    public bool IsWallClimbing => isWallClimbing;
 
     protected void Awake()
     {
@@ -92,12 +95,21 @@ public class StreetParkourAbility : Ability
             PerformWallJump();
         }
 
-        if (!isWallClimbing)
+        if (!isWallClimbing && externalVelocityActive)
         {
             velocity.y += gravity * Time.deltaTime;
         }
 
-        controller.Move(velocity * Time.deltaTime);
+        if (isWallClimbing || externalVelocityActive)
+        {
+            controller.Move(velocity * Time.deltaTime);
+        }
+
+        if (externalVelocityActive && controller.isGrounded && velocity.y <= 0f)
+        {
+            externalVelocityActive = false;
+            velocity = Vector3.zero;
+        }
     }
 
     public override bool CanUse()
@@ -109,7 +121,10 @@ public class StreetParkourAbility : Ability
     {
         isWallClimbing = true;
         climbTimeRemaining = Mathf.Max(0f, climbTimeRemaining - Time.deltaTime);
+        externalVelocityActive = false;
 
+        velocity.x = 0f;
+        velocity.z = 0f;
         velocity.y = wallClimbSpeed;
         velocity += -currentWallHit.normal * wallStickForce * Time.deltaTime;
     }
@@ -155,6 +170,7 @@ public class StreetParkourAbility : Ability
         velocity.x = jumpDirection.x * wallJumpAwayForce;
         velocity.z = jumpDirection.z * wallJumpAwayForce;
         velocity.y = wallJumpUpForce;
+        externalVelocityActive = true;
         reattachTimer = reattachDelay;
         StopWallClimb();
     }
