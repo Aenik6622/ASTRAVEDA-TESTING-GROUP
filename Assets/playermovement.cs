@@ -38,7 +38,7 @@ public class PlayerMovement : MonoBehaviour
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * speed * Time.deltaTime);
 
-        if (streetParkourAbility != null && streetParkourAbility.IsWallClimbing)
+        if (streetParkourAbility != null && streetParkourAbility.IsMovementOverridden)
         {
             velocity.y = 0f;
             return;

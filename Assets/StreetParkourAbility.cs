@@ -26,6 +26,13 @@ public class StreetParkourAbility : Ability
     [SerializeField] private float reattachDelay = 0.2f;
     [SerializeField] private KeyCode jumpKey = KeyCode.Space;
 
+    [Header("Vault Tuning")]
+    [SerializeField] private float vaultCheckHeight = 1.1f;
+    [SerializeField] private float vaultForwardCheck = 0.8f;
+    [SerializeField] private float vaultDropCheck = 2f;
+    [SerializeField] private float vaultForwardForce = 5.5f;
+    [SerializeField] private float vaultUpForce = 4.5f;
+
     private Vector3 velocity;
     private float climbTimeRemaining;
     private float reattachTimer;
@@ -34,6 +41,7 @@ public class StreetParkourAbility : Ability
     private RaycastHit currentWallHit;
 
     public bool IsWallClimbing => isWallClimbing;
+    public bool IsMovementOverridden => isWallClimbing || externalVelocityActive;
 
     protected void Awake()
     {
@@ -87,7 +95,10 @@ public class StreetParkourAbility : Ability
         }
         else if (isWallClimbing)
         {
-            StopWallClimb();
+            if (!TryVaultOverLedge())
+            {
+                StopWallClimb();
+            }
         }
 
         if (isWallClimbing && Input.GetKeyDown(jumpKey))
@@ -173,6 +184,37 @@ public class StreetParkourAbility : Ability
         externalVelocityActive = true;
         reattachTimer = reattachDelay;
         StopWallClimb();
+    }
+
+    private bool TryVaultOverLedge()
+    {
+        Vector3 forward = -currentWallHit.normal;
+        forward.y = 0f;
+
+        if (forward.sqrMagnitude <= 0.001f)
+        {
+            forward = visualRoot.forward;
+        }
+
+        forward.Normalize();
+
+        Vector3 topProbeOrigin = transform.position + (Vector3.up * vaultCheckHeight);
+        if (Physics.Raycast(topProbeOrigin, forward, wallCheckDistance, climbableLayers, QueryTriggerInteraction.Ignore))
+        {
+            return false;
+        }
+
+        Vector3 landingProbeOrigin = topProbeOrigin + (forward * vaultForwardCheck);
+        if (!Physics.Raycast(landingProbeOrigin, Vector3.down, out RaycastHit landingHit, vaultDropCheck, climbableLayers, QueryTriggerInteraction.Ignore))
+        {
+            return false;
+        }
+
+        velocity = (forward * vaultForwardForce) + (Vector3.up * vaultUpForce);
+        externalVelocityActive = true;
+        reattachTimer = reattachDelay;
+        isWallClimbing = false;
+        return true;
     }
 
     private void StopWallClimb()
