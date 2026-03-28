@@ -36,6 +36,7 @@ public class BotBehaviour : MonoBehaviour
     [SerializeField] private float splashMultiplier = 0.3f;
 
     [Header("Movement")]
+    [SerializeField] private PatrolPath patrolPath;
     [SerializeField] private Transform[] patrolPoints;
     [SerializeField] private float patrolPointReachDistance = 0.75f;
     [SerializeField] private LayerMask obstacleMask = ~0;
@@ -51,6 +52,7 @@ public class BotBehaviour : MonoBehaviour
     public BotRole Role => role;
     public bool IsDead => isDead;
     public float CurrentHealth => currentHealth;
+    public float MaxHealth => maxHealth;
 
     private void Reset()
     {
@@ -68,11 +70,13 @@ public class BotBehaviour : MonoBehaviour
         preferredDistance = Mathf.Clamp(preferredDistance, 1f, attackRange);
         splashRadius = Mathf.Max(0f, splashRadius);
         splashMultiplier = Mathf.Clamp01(splashMultiplier);
+        RefreshPatrolPoints();
     }
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        RefreshPatrolPoints();
         if (useRolePresetStats)
         {
             ApplyRolePreset();
@@ -86,6 +90,8 @@ public class BotBehaviour : MonoBehaviour
         {
             ActiveBots.Add(this);
         }
+
+        BotHealthBar.EnsureFor(this);
     }
 
     private void OnDisable()
@@ -191,6 +197,18 @@ public class BotBehaviour : MonoBehaviour
         }
     }
 
+    public void Heal(float amount)
+    {
+        if (isDead || amount <= 0f)
+        {
+            return;
+        }
+
+        AntiHealStatus antiHeal = GetComponent<AntiHealStatus>();
+        float finalAmount = antiHeal != null ? amount * antiHeal.HealingMultiplier : amount;
+        currentHealth = Mathf.Min(maxHealth, currentHealth + finalAmount);
+    }
+
     private BotBehaviour FindNearestEnemy(float searchRange)
     {
         BotBehaviour bestTarget = null;
@@ -260,6 +278,7 @@ public class BotBehaviour : MonoBehaviour
 
     private void Patrol()
     {
+        RefreshPatrolPoints();
         if (!HasPatrolRoute())
         {
             return;
@@ -287,6 +306,7 @@ public class BotBehaviour : MonoBehaviour
 
     private bool HasPatrolRoute()
     {
+        RefreshPatrolPoints();
         if (patrolPoints == null || patrolPoints.Length == 0)
         {
             return false;
@@ -378,5 +398,15 @@ public class BotBehaviour : MonoBehaviour
             Gizmos.color = new Color(1f, 0.5f, 0f, 1f);
             Gizmos.DrawWireSphere(transform.position, splashRadius);
         }
+    }
+
+    private void RefreshPatrolPoints()
+    {
+        if (patrolPath == null)
+        {
+            return;
+        }
+
+        patrolPoints = patrolPath.GetPoints();
     }
 }

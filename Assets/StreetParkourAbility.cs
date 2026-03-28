@@ -44,6 +44,7 @@ public class StreetParkourAbility : Ability
     public bool IsMovementOverridden => isWallClimbing || externalVelocityActive;
     public override string AbilityDisplayName => "Street Parkour";
     public override string AbilityBindingLabel => "Move Into Wall";
+    public override string AbilityHudIconPath => @"C:/Users/Admin/Pictures/street.jpeg";
 
     protected void Awake()
     {

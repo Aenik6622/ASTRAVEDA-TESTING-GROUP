@@ -10,7 +10,7 @@ public class BaseCharacter : MonoBehaviour
 
     protected virtual void Start()
     {
-        health = maxHealth;
+        health = health > 0f ? Mathf.Clamp(health, 0f, maxHealth) : maxHealth;
     }
 
     public virtual void TakeDamage(float damage)
@@ -21,6 +21,18 @@ public class BaseCharacter : MonoBehaviour
         {
             Die();
         }
+    }
+
+    public virtual void Heal(float amount)
+    {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        AntiHealStatus antiHeal = GetComponent<AntiHealStatus>();
+        float finalAmount = antiHeal != null ? amount * antiHeal.HealingMultiplier : amount;
+        health = Mathf.Min(maxHealth, health + finalAmount);
     }
 
     protected virtual void Die()

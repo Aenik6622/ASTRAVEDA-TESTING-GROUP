@@ -39,6 +39,7 @@ public class MolotovAbility : Ability
 
     public override string AbilityDisplayName => "Molotov";
     public override string AbilityBindingLabel => "RMB";
+    public override string AbilityHudIconPath => @"C:/Users/Admin/Pictures/molly.jpeg";
 
     private void Awake()
     {
@@ -245,6 +246,11 @@ public class MolotovAbility : Ability
             BotBehaviour bot = targetObject.GetComponentInParent<BotBehaviour>();
             if (bot != null)
             {
+                if (bot.Team == BotBehaviour.BotTeam.Ally)
+                {
+                    return;
+                }
+
                 if (!damageOwner && owner != null && bot.transform.root == owner.transform.root)
                 {
                     return;
@@ -328,6 +334,11 @@ public class MolotovAbility : Ability
             BotBehaviour bot = targetObject.GetComponentInParent<BotBehaviour>();
             if (bot != null)
             {
+                if (bot.Team == BotBehaviour.BotTeam.Ally)
+                {
+                    return;
+                }
+
                 if (!damageOwner && owner != null && bot.transform.root == owner.transform.root)
                 {
                     return;
