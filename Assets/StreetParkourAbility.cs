@@ -63,7 +63,7 @@ public class StreetParkourAbility : Ability
         }
 
         AbilityHudOverlay.EnsureFor(gameObject);
-        cooldown = Mathf.Max(0f, cooldown);
+        cooldown = 0f;
         climbTimeRemaining = maxClimbDuration;
     }
 
@@ -94,7 +94,14 @@ public class StreetParkourAbility : Ability
 
         if (wantsClimb)
         {
-            TryUse();
+            if (!isWallClimbing)
+            {
+                StartWallClimb();
+            }
+            else
+            {
+                ContinueWallClimb();
+            }
         }
         else if (isWallClimbing)
         {
@@ -128,12 +135,34 @@ public class StreetParkourAbility : Ability
 
     public override bool CanUse()
     {
-        return base.CanUse() && climbTimeRemaining > 0f && reattachTimer <= 0f;
+        return !isWallClimbing && climbTimeRemaining > 0f && reattachTimer <= 0f;
     }
 
     protected override void Activate()
     {
+        StartWallClimb();
+    }
+
+    private void StartWallClimb()
+    {
+        if (!CanUse())
+        {
+            return;
+        }
+
         isWallClimbing = true;
+        externalVelocityActive = false;
+        ContinueWallClimb();
+    }
+
+    private void ContinueWallClimb()
+    {
+        if (climbTimeRemaining <= 0f)
+        {
+            StopWallClimb();
+            return;
+        }
+
         climbTimeRemaining = Mathf.Max(0f, climbTimeRemaining - Time.deltaTime);
         externalVelocityActive = false;
 
