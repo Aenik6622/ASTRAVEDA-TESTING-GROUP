@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
@@ -17,6 +18,8 @@ public class BotBehaviour : MonoBehaviour
     }
 
     private static readonly List<BotBehaviour> ActiveBots = new List<BotBehaviour>();
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
 
     [Header("Identity")]
     [SerializeField] private BotTeam team = BotTeam.Enemy;
@@ -41,12 +44,23 @@ public class BotBehaviour : MonoBehaviour
     [SerializeField] private float patrolPointReachDistance = 0.75f;
     [SerializeField] private LayerMask obstacleMask = ~0;
 
+    [Header("Visuals")]
+    [SerializeField] private bool applyTeamColors = true;
+    [SerializeField] private Color allyBodyColor = new Color(1f, 0.82f, 0.18f, 1f);
+    [SerializeField] private Color enemyBodyColor = new Color(0.93f, 0.2f, 0.22f, 1f);
+    [SerializeField] private Color allyHeadColor = new Color(0.98f, 0.9f, 0.48f, 1f);
+    [SerializeField] private Color enemyHeadColor = new Color(1f, 0.45f, 0.48f, 1f);
+    [SerializeField] private float tankScaleMultiplier = 1.22f;
+
     private BotBehaviour currentTarget;
     private CharacterController characterController;
-    private float currentHealth;
+    private Renderer[] cachedRenderers;
+    private MaterialPropertyBlock propertyBlock;
     private float attackTimer;
+    private float currentHealth;
     private int patrolIndex;
     private bool isDead;
+    private Vector3 baseScale = Vector3.one;
 
     public BotTeam Team => team;
     public BotRole Role => role;
@@ -54,9 +68,14 @@ public class BotBehaviour : MonoBehaviour
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
 
+    public event Action<float, float, bool> HealthChanged;
+
     private void Reset()
     {
+        CacheVisualRenderers();
+        baseScale = transform.localScale;
         ApplyRolePreset();
+        ApplyTeamVisuals();
     }
 
     private void OnValidate()
@@ -70,18 +89,35 @@ public class BotBehaviour : MonoBehaviour
         preferredDistance = Mathf.Clamp(preferredDistance, 1f, attackRange);
         splashRadius = Mathf.Max(0f, splashRadius);
         splashMultiplier = Mathf.Clamp01(splashMultiplier);
+        tankScaleMultiplier = Mathf.Max(1f, tankScaleMultiplier);
         RefreshPatrolPoints();
+        CacheVisualRenderers();
+        if (!Application.isPlaying)
+        {
+            baseScale = transform.localScale;
+        }
+        ApplyTeamVisuals();
     }
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        propertyBlock = new MaterialPropertyBlock();
         RefreshPatrolPoints();
+        CacheVisualRenderers();
+        baseScale = transform.localScale;
+
         if (useRolePresetStats)
         {
             ApplyRolePreset();
         }
-        currentHealth = maxHealth;
+        else
+        {
+            currentHealth = maxHealth;
+        }
+
+        ApplyTeamVisuals();
+        NotifyHealthChanged();
     }
 
     private void OnEnable()
@@ -92,6 +128,7 @@ public class BotBehaviour : MonoBehaviour
         }
 
         BotHealthBar.EnsureFor(this);
+        NotifyHealthChanged();
     }
 
     private void OnDisable()
@@ -181,6 +218,34 @@ public class BotBehaviour : MonoBehaviour
         }
 
         currentHealth = Mathf.Clamp(currentHealth <= 0f ? maxHealth : currentHealth, 0f, maxHealth);
+        ApplyTeamVisuals();
+        NotifyHealthChanged();
+    }
+
+    public void ConfigureRuntime(BotTeam configuredTeam, BotRole configuredRole, Transform[] configuredPatrolPoints = null, PatrolPath configuredPatrolPath = null, bool applyPresetStats = true)
+    {
+        team = configuredTeam;
+        role = configuredRole;
+        patrolPath = configuredPatrolPath;
+        patrolPoints = configuredPatrolPoints;
+        useRolePresetStats = applyPresetStats;
+        patrolIndex = 0;
+        isDead = false;
+        currentTarget = null;
+
+        if (applyPresetStats)
+        {
+            currentHealth = 0f;
+            ApplyRolePreset();
+        }
+        else
+        {
+            currentHealth = maxHealth;
+            NotifyHealthChanged();
+        }
+
+        CacheVisualRenderers();
+        ApplyTeamVisuals();
     }
 
     public void TakeDamage(float damage)
@@ -191,6 +256,7 @@ public class BotBehaviour : MonoBehaviour
         }
 
         currentHealth = Mathf.Max(0f, currentHealth - damage);
+        NotifyHealthChanged();
         if (currentHealth <= 0f)
         {
             Die();
@@ -207,6 +273,7 @@ public class BotBehaviour : MonoBehaviour
         AntiHealStatus antiHeal = GetComponent<AntiHealStatus>();
         float finalAmount = antiHeal != null ? amount * antiHeal.HealingMultiplier : amount;
         currentHealth = Mathf.Min(maxHealth, currentHealth + finalAmount);
+        NotifyHealthChanged();
     }
 
     private BotBehaviour FindNearestEnemy(float searchRange)
@@ -375,7 +442,65 @@ public class BotBehaviour : MonoBehaviour
     {
         isDead = true;
         currentTarget = null;
+        NotifyHealthChanged();
         gameObject.SetActive(false);
+    }
+
+    private void CacheVisualRenderers()
+    {
+        cachedRenderers = GetComponentsInChildren<Renderer>(true);
+    }
+
+    private void ApplyTeamVisuals()
+    {
+        if (!applyTeamColors)
+        {
+            return;
+        }
+
+        if (cachedRenderers == null || cachedRenderers.Length == 0)
+        {
+            CacheVisualRenderers();
+        }
+
+        if (propertyBlock == null)
+        {
+            propertyBlock = new MaterialPropertyBlock();
+        }
+
+        var bodyColor = team == BotTeam.Ally ? allyBodyColor : enemyBodyColor;
+        var headColor = team == BotTeam.Ally ? allyHeadColor : enemyHeadColor;
+
+        if (role == BotRole.Tank)
+        {
+            bodyColor = Color.Lerp(bodyColor, Color.black, 0.18f);
+            headColor = Color.Lerp(headColor, Color.white, 0.08f);
+        }
+
+        transform.localScale = role == BotRole.Tank ? baseScale * tankScaleMultiplier : baseScale;
+
+        for (var i = 0; i < cachedRenderers.Length; i++)
+        {
+            var rendererComponent = cachedRenderers[i];
+            if (rendererComponent == null)
+            {
+                continue;
+            }
+
+            var color = rendererComponent.transform.name.IndexOf("head", StringComparison.OrdinalIgnoreCase) >= 0
+                ? headColor
+                : bodyColor;
+
+            rendererComponent.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor(BaseColorId, color);
+            propertyBlock.SetColor(ColorId, color);
+            rendererComponent.SetPropertyBlock(propertyBlock);
+        }
+    }
+
+    private void NotifyHealthChanged()
+    {
+        HealthChanged?.Invoke(currentHealth, maxHealth, isDead);
     }
 
     private static float FlatDistance(Vector3 a, Vector3 b)
@@ -410,3 +535,5 @@ public class BotBehaviour : MonoBehaviour
         patrolPoints = patrolPath.GetPoints();
     }
 }
+
+

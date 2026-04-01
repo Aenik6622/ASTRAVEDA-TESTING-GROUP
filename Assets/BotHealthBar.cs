@@ -1,11 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 public class BotHealthBar : MonoBehaviour
 {
     [SerializeField] private Vector3 worldOffset = new Vector3(0f, 0.45f, 0f);
-    [SerializeField] private bool showAtFullHealth = true;
+    [SerializeField] private bool showAtFullHealth = false;
 
     private static Canvas overlayCanvas;
 
@@ -13,7 +13,9 @@ public class BotHealthBar : MonoBehaviour
     private Transform anchor;
     private RectTransform rootRect;
     private Image fillImage;
+    private RectTransform fillRect;
     private Camera activeCamera;
+    private float cachedHealthNormalized = 1f;
 
     private void Awake()
     {
@@ -59,14 +61,17 @@ public class BotHealthBar : MonoBehaviour
         fillObject.transform.SetParent(rootObject.transform, false);
         fillImage = fillObject.AddComponent<Image>();
         fillImage.color = bot.Team == BotBehaviour.BotTeam.Ally ? new Color(0.3f, 0.85f, 1f) : new Color(1f, 0.25f, 0.25f);
-        fillImage.type = Image.Type.Filled;
-        fillImage.fillMethod = Image.FillMethod.Horizontal;
 
-        RectTransform fillRect = fillObject.GetComponent<RectTransform>();
+        fillRect = fillObject.GetComponent<RectTransform>();
         fillRect.anchorMin = new Vector2(0f, 0f);
         fillRect.anchorMax = new Vector2(1f, 1f);
+        fillRect.pivot = new Vector2(0f, 0.5f);
         fillRect.offsetMin = new Vector2(2f, 2f);
         fillRect.offsetMax = new Vector2(-2f, -2f);
+
+        bot.HealthChanged -= HandleHealthChanged;
+        bot.HealthChanged += HandleHealthChanged;
+        RefreshVisuals();
     }
 
     private void LateUpdate()
@@ -87,9 +92,7 @@ public class BotHealthBar : MonoBehaviour
         Vector3 screenPoint = activeCamera.WorldToScreenPoint(follow.position + worldOffset);
         bool visible = screenPoint.z > 0f;
 
-        float healthNormalized = Mathf.Approximately(bot.MaxHealth, 0f) ? 0f : Mathf.Clamp01(bot.CurrentHealth / bot.MaxHealth);
-        fillImage.fillAmount = healthNormalized;
-        rootRect.gameObject.SetActive(!bot.IsDead && visible && (showAtFullHealth || healthNormalized < 0.999f));
+        RefreshVisuals(visible);
 
         if (!rootRect.gameObject.activeSelf)
         {
@@ -101,10 +104,32 @@ public class BotHealthBar : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (bot != null)
+        {
+            bot.HealthChanged -= HandleHealthChanged;
+        }
+
         if (rootRect != null)
         {
             Destroy(rootRect.gameObject);
         }
+    }
+
+    private void HandleHealthChanged(float currentHealth, float maxHealth, bool dead)
+    {
+        cachedHealthNormalized = Mathf.Approximately(maxHealth, 0f) ? 0f : Mathf.Clamp01(currentHealth / maxHealth);
+        RefreshVisuals();
+    }
+
+    private void RefreshVisuals(bool visible = true)
+    {
+        if (rootRect == null || fillImage == null || fillRect == null || bot == null)
+        {
+            return;
+        }
+
+        fillRect.anchorMax = new Vector2(cachedHealthNormalized, 1f);
+        rootRect.gameObject.SetActive(!bot.IsDead && visible && (showAtFullHealth || cachedHealthNormalized < 0.999f));
     }
 
     private Transform FindHeadAnchor()
@@ -161,3 +186,6 @@ public class BotHealthBar : MonoBehaviour
         return null;
     }
 }
+
+
+
