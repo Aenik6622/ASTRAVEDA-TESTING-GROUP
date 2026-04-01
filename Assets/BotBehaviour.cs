@@ -61,6 +61,8 @@ public class BotBehaviour : MonoBehaviour
     private int patrolIndex;
     private bool isDead;
     private Vector3 baseScale = Vector3.one;
+    private float externalMoveMultiplier = 1f;
+    private float externalMoveBuffTimer;
 
     public BotTeam Team => team;
     public BotRole Role => role;
@@ -144,6 +146,14 @@ public class BotBehaviour : MonoBehaviour
         }
 
         attackTimer -= Time.deltaTime;
+        if (externalMoveBuffTimer > 0f)
+        {
+            externalMoveBuffTimer = Mathf.Max(0f, externalMoveBuffTimer - Time.deltaTime);
+            if (externalMoveBuffTimer <= 0f)
+            {
+                externalMoveMultiplier = 1f;
+            }
+        }
 
         if (currentTarget == null || currentTarget.IsDead || currentTarget.Team == team)
         {
@@ -261,6 +271,17 @@ public class BotBehaviour : MonoBehaviour
         {
             Die();
         }
+    }
+
+    public void ApplyMovementBuff(float multiplier, float duration)
+    {
+        if (multiplier <= 0f || duration <= 0f)
+        {
+            return;
+        }
+
+        externalMoveMultiplier = Mathf.Max(externalMoveMultiplier, multiplier);
+        externalMoveBuffTimer = Mathf.Max(externalMoveBuffTimer, duration);
     }
 
     public void Heal(float amount)
@@ -401,7 +422,7 @@ public class BotBehaviour : MonoBehaviour
             return;
         }
 
-        var step = direction.normalized * moveSpeed * Time.deltaTime;
+        var step = direction.normalized * (moveSpeed * externalMoveMultiplier) * Time.deltaTime;
 
         if (characterController != null && characterController.enabled)
         {

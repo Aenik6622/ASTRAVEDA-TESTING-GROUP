@@ -42,4 +42,8 @@ public abstract class WeaponAbility : Ability
     protected virtual void OnEquippedChanged(bool equipped)
     {
     }
+
+    public virtual void GrantAdditionalAmmoPercent(float percent)
+    {
+    }
 }

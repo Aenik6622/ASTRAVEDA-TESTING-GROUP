@@ -191,6 +191,17 @@ public class BioticRifleAbility : WeaponAbility
         reserveAmmo -= ammoToLoad;
     }
 
+    public override void GrantAdditionalAmmoPercent(float percent)
+    {
+        if (percent <= 0f)
+        {
+            return;
+        }
+
+        int bonusAmmo = Mathf.RoundToInt(maxReserveAmmo * percent);
+        reserveAmmo = Mathf.Clamp(reserveAmmo + Mathf.Max(1, bonusAmmo), 0, maxReserveAmmo);
+    }
+
     private Vector3 GetAimDirection(Vector3 origin, Camera aimCamera)
     {
         Vector3 baseDirection;
@@ -239,6 +250,10 @@ public class BioticRifleAbility : WeaponAbility
             }
 
             bot.TakeDamage(damagePerShot);
+            if (owner != null)
+            {
+                owner.RegisterDamageDealt(damagePerShot);
+            }
             if (IsHeadshot(hit, bot.transform))
             {
                 ApplyAntiHeal(bot.gameObject);
@@ -258,6 +273,10 @@ public class BioticRifleAbility : WeaponAbility
         }
 
         character.TakeDamage(damagePerShot);
+        if (owner != null)
+        {
+            owner.RegisterDamageDealt(damagePerShot);
+        }
         if (IsHeadshot(hit, character.transform))
         {
             ApplyAntiHeal(character.gameObject);

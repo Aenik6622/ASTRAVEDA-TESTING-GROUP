@@ -8,20 +8,22 @@ public class PlayerMovement : MonoBehaviour
     public float inputDeadzone = 0.1f;
 
     private CharacterController controller;
+    private BaseCharacter baseCharacter;
     private StreetParkourAbility streetParkourAbility;
+    private DadaKaRaajUltimateAbility dadaKaRaajUltimateAbility;
     private Vector3 velocity;
     private bool isGrounded;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        baseCharacter = GetComponent<BaseCharacter>();
         streetParkourAbility = GetComponent<StreetParkourAbility>();
+        dadaKaRaajUltimateAbility = GetComponent<DadaKaRaajUltimateAbility>();
     }
 
     void Update()
     {
-        isGrounded = controller.isGrounded;
-
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
 
@@ -37,13 +39,25 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 move = transform.right * x + transform.forward * z;
 
-        if (streetParkourAbility != null && streetParkourAbility.IsMovementOverridden)
+        bool movementOverridden =
+            (streetParkourAbility != null && streetParkourAbility.IsMovementOverridden) ||
+            (dadaKaRaajUltimateAbility != null && dadaKaRaajUltimateAbility.IsMovementOverridden);
+
+        if (movementOverridden)
         {
             velocity.y = 0f;
             return;
         }
 
-        controller.Move(move * speed * Time.deltaTime);
+        if (controller == null || !controller.enabled)
+        {
+            return;
+        }
+
+        isGrounded = controller.isGrounded;
+
+        float finalSpeed = speed * (baseCharacter != null ? baseCharacter.CurrentMovementMultiplier : 1f);
+        controller.Move(move * finalSpeed * Time.deltaTime);
 
         if (isGrounded && velocity.y < 0f)
         {

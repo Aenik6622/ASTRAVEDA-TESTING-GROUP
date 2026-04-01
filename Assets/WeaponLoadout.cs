@@ -6,6 +6,7 @@ public class WeaponLoadout : MonoBehaviour
 {
     private readonly List<WeaponAbility> weapons = new List<WeaponAbility>();
     private int activeSlot;
+    private bool loadoutLocked;
 
     private void Awake()
     {
@@ -23,6 +24,11 @@ public class WeaponLoadout : MonoBehaviour
 
     private void Update()
     {
+        if (loadoutLocked)
+        {
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
             EquipSlot(0);
@@ -53,6 +59,28 @@ public class WeaponLoadout : MonoBehaviour
 
         weapons.Add(weapon);
         weapons.Sort((a, b) => a.WeaponSlot.CompareTo(b.WeaponSlot));
+    }
+
+    public void SetLoadoutLocked(bool locked)
+    {
+        loadoutLocked = locked;
+
+        if (weapons.Count == 0)
+        {
+            return;
+        }
+
+        if (locked)
+        {
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                weapons[i].SetEquipped(false);
+            }
+
+            return;
+        }
+
+        EquipSlot(activeSlot);
     }
 
     private void EquipSlot(int slot)

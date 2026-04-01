@@ -203,6 +203,17 @@ public class DesiKattaShotgunAbility : WeaponAbility
         reserveAmmo -= ammoToLoad;
     }
 
+    public override void GrantAdditionalAmmoPercent(float percent)
+    {
+        if (percent <= 0f)
+        {
+            return;
+        }
+
+        int bonusAmmo = Mathf.RoundToInt(maxReserveAmmo * percent);
+        reserveAmmo = Mathf.Clamp(reserveAmmo + Mathf.Max(1, bonusAmmo), 0, maxReserveAmmo);
+    }
+
     private Vector3 GetAimDirection(Vector3 origin, Camera aimCamera)
     {
         if (aimCamera != null)
@@ -243,6 +254,10 @@ public class DesiKattaShotgunAbility : WeaponAbility
             }
 
             bot.TakeDamage(damage);
+            if (owner != null)
+            {
+                owner.RegisterDamageDealt(damage);
+            }
             return;
         }
 
@@ -258,6 +273,10 @@ public class DesiKattaShotgunAbility : WeaponAbility
         }
 
         character.TakeDamage(damage);
+        if (owner != null)
+        {
+            owner.RegisterDamageDealt(damage);
+        }
     }
 
     private void SetupViewModel()

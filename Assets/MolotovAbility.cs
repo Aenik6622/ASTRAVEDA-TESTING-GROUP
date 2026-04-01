@@ -259,6 +259,10 @@ public class MolotovAbility : Ability
                 if (damagedObjects.Add(bot))
                 {
                     bot.TakeDamage(damage);
+                    if (owner != null)
+                    {
+                        owner.RegisterDamageDealt(damage);
+                    }
                 }
 
                 return;
@@ -278,6 +282,10 @@ public class MolotovAbility : Ability
             if (damagedObjects.Add(character))
             {
                 character.TakeDamage(damage);
+                if (owner != null)
+                {
+                    owner.RegisterDamageDealt(damage);
+                }
             }
         }
     }
@@ -347,6 +355,10 @@ public class MolotovAbility : Ability
                 if (damagedObjects.Add(bot))
                 {
                     bot.TakeDamage(damagePerTick);
+                    if (owner != null)
+                    {
+                        owner.RegisterDamageDealt(damagePerTick);
+                    }
                 }
 
                 return;
@@ -366,6 +378,10 @@ public class MolotovAbility : Ability
             if (damagedObjects.Add(character))
             {
                 character.TakeDamage(damagePerTick);
+                if (owner != null)
+                {
+                    owner.RegisterDamageDealt(damagePerTick);
+                }
             }
         }
 
