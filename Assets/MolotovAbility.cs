@@ -5,19 +5,32 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class MolotovAbility : Ability
 {
+    private enum ThrowMode
+    {
+        Normal,
+        BounceOnce
+    }
+
     [Header("References")]
     [SerializeField] private BaseCharacter owner;
     [SerializeField] private Transform throwOrigin;
     [SerializeField] private Transform aimOrigin;
+    [SerializeField] private WeaponLoadout weaponLoadout;
 
     [Header("Input")]
-    [SerializeField] private int activationMouseButton = 1;
+    [SerializeField] private int equipMouseButton = 1;
+    [SerializeField] private int throwMouseButton = 0;
+    [SerializeField] private int bounceThrowMouseButton = 1;
 
     [Header("Throw")]
     [SerializeField] private float throwForce = 18f;
     [SerializeField] private float upwardForce = 4f;
     [SerializeField] private float maxAimDistance = 100f;
     [SerializeField] private LayerMask aimMask = ~0;
+    [SerializeField] private float spawnForwardOffset = 1.1f;
+    [SerializeField] private float spawnUpwardOffset = 0.25f;
+    [SerializeField, Range(0.1f, 0.95f)] private float bounceVelocityMultiplier = 0.72f;
+    [SerializeField] private float minimumBounceUpwardVelocity = 1.5f;
 
     [Header("Explosion")]
     [SerializeField] private float impactDamage = 35f;
@@ -36,10 +49,14 @@ public class MolotovAbility : Ability
     [SerializeField] private bool damageOwner;
 
     private Camera cachedCamera;
+    private bool isEquipped;
+    private ThrowMode queuedThrowMode = ThrowMode.Normal;
 
     public override string AbilityDisplayName => "Molotov";
-    public override string AbilityBindingLabel => "RMB";
+    public override string AbilityBindingLabel => isEquipped ? "LMB | RMB | Scroll" : "RMB Equip";
     public override string AbilityHudIconPath => @"C:/Users/Admin/Pictures/molly.jpeg";
+    public override string AbilityStatusText => isEquipped ? "EQUIPPED" : base.AbilityStatusText;
+    public override Color AbilityStatusColor => isEquipped ? new Color(1f, 0.84f, 0.36f) : base.AbilityStatusColor;
 
     private void Awake()
     {
@@ -58,6 +75,11 @@ public class MolotovAbility : Ability
             aimOrigin = throwOrigin;
         }
 
+        if (weaponLoadout == null)
+        {
+            weaponLoadout = GetComponent<WeaponLoadout>();
+        }
+
         AbilityHudOverlay.EnsureFor(gameObject);
 
         if (cooldown <= 0f)
@@ -68,15 +90,39 @@ public class MolotovAbility : Ability
 
     private void Update()
     {
-        if (Input.GetMouseButtonDown(activationMouseButton))
+        if (!isEquipped)
         {
+            if (Input.GetMouseButtonDown(equipMouseButton) && base.CanUse())
+            {
+                EnterEquippedState();
+            }
+
+            return;
+        }
+
+        if (Mathf.Abs(Input.mouseScrollDelta.y) > 0.01f)
+        {
+            ReturnToPrimaryWeapon();
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(throwMouseButton))
+        {
+            queuedThrowMode = ThrowMode.Normal;
+            TryUse();
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(bounceThrowMouseButton))
+        {
+            queuedThrowMode = ThrowMode.BounceOnce;
             TryUse();
         }
     }
 
     protected override void Activate()
     {
-        Vector3 spawnPosition = throwOrigin.position + (throwOrigin.forward * 0.6f) + (Vector3.up * 0.15f);
+        Vector3 spawnPosition = GetSpawnPosition();
         GameObject projectileObject = new GameObject("Molotov Projectile");
         projectileObject.transform.position = spawnPosition;
         projectileObject.transform.localScale = Vector3.one * Mathf.Max(0.2f, projectileRadius * 2f);
@@ -87,9 +133,10 @@ public class MolotovAbility : Ability
         Rigidbody rigidbody = projectileObject.AddComponent<Rigidbody>();
         rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+        IgnoreOwnerCollision(collider);
 
         MolotovProjectile projectile = projectileObject.AddComponent<MolotovProjectile>();
-        projectile.Initialize(owner, damageOwner, impactDamage, explosionRadius, explosionDamage, fireDuration, fireRadius, fireDamagePerTick, fireTickInterval, projectileLifetime);
+        projectile.Initialize(owner, damageOwner, impactDamage, explosionRadius, explosionDamage, fireDuration, fireRadius, fireDamagePerTick, fireTickInterval, projectileLifetime, queuedThrowMode == ThrowMode.BounceOnce, bounceVelocityMultiplier, minimumBounceUpwardVelocity, projectileRadius);
         CreateProjectileVisual(projectileObject.transform);
 
         Vector3 targetPoint = GetAimPoint();
@@ -101,6 +148,77 @@ public class MolotovAbility : Ability
 
         Vector3 launchVelocity = (throwDirection * throwForce) + (Vector3.up * upwardForce);
         rigidbody.linearVelocity = launchVelocity;
+        ExitEquippedState();
+    }
+
+    public override bool CanUse()
+    {
+        return isEquipped && base.CanUse();
+    }
+
+    private void OnDisable()
+    {
+        isEquipped = false;
+    }
+
+    private void EnterEquippedState()
+    {
+        isEquipped = true;
+        queuedThrowMode = ThrowMode.Normal;
+        weaponLoadout?.SetLoadoutLocked(true);
+    }
+
+    private void ExitEquippedState()
+    {
+        isEquipped = false;
+        queuedThrowMode = ThrowMode.Normal;
+        weaponLoadout?.SetLoadoutLocked(false);
+    }
+
+    private void ReturnToPrimaryWeapon()
+    {
+        isEquipped = false;
+        queuedThrowMode = ThrowMode.Normal;
+        if (weaponLoadout != null)
+        {
+            weaponLoadout.EquipPrimaryWeapon();
+        }
+    }
+
+    private Vector3 GetSpawnPosition()
+    {
+        Vector3 origin = throwOrigin != null ? throwOrigin.position : transform.position;
+        Vector3 forward = throwOrigin != null ? throwOrigin.forward : transform.forward;
+        Vector3 spawnPosition = origin + (forward * spawnForwardOffset) + (Vector3.up * spawnUpwardOffset);
+
+        CharacterController controller = owner != null ? owner.GetComponent<CharacterController>() : GetComponent<CharacterController>();
+        if (controller != null)
+        {
+            float clearance = controller.radius + projectileRadius + 0.1f;
+            Vector3 controllerCenter = controller.bounds.center;
+            spawnPosition = controllerCenter + (forward * Mathf.Max(spawnForwardOffset, clearance)) + (Vector3.up * spawnUpwardOffset);
+        }
+
+        return spawnPosition;
+    }
+
+    private void IgnoreOwnerCollision(Collider projectileCollider)
+    {
+        if (projectileCollider == null)
+        {
+            return;
+        }
+
+        Transform ownerRoot = owner != null ? owner.transform.root : transform.root;
+        Collider[] ownerColliders = ownerRoot.GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < ownerColliders.Length; i++)
+        {
+            Collider ownerCollider = ownerColliders[i];
+            if (ownerCollider != null)
+            {
+                Physics.IgnoreCollision(projectileCollider, ownerCollider, true);
+            }
+        }
     }
 
     private Vector3 GetAimPoint()
@@ -191,9 +309,15 @@ public class MolotovAbility : Ability
         private float fireRadius;
         private float fireDamagePerTick;
         private float fireTickInterval;
+        private bool allowTerrainBounce;
+        private bool hasBounced;
+        private float bounceVelocityMultiplier;
+        private float minimumBounceUpwardVelocity;
+        private float projectileRadius;
         private bool exploded;
+        private Rigidbody cachedRigidbody;
 
-        public void Initialize(BaseCharacter sourceOwner, bool canDamageOwner, float directHitDamage, float blastRadius, float blastDamage, float burnDuration, float burnRadius, float burnDamagePerTick, float burnTickInterval, float lifetime)
+        public void Initialize(BaseCharacter sourceOwner, bool canDamageOwner, float directHitDamage, float blastRadius, float blastDamage, float burnDuration, float burnRadius, float burnDamagePerTick, float burnTickInterval, float lifetime, bool shouldBounceOnTerrain, float bounceVelocityScale, float minimumBounceYVelocity, float collisionRadius)
         {
             owner = sourceOwner;
             damageOwner = canDamageOwner;
@@ -204,6 +328,11 @@ public class MolotovAbility : Ability
             fireRadius = burnRadius;
             fireDamagePerTick = burnDamagePerTick;
             fireTickInterval = burnTickInterval;
+            allowTerrainBounce = shouldBounceOnTerrain;
+            bounceVelocityMultiplier = Mathf.Clamp(bounceVelocityScale, 0.1f, 0.95f);
+            minimumBounceUpwardVelocity = Mathf.Max(0f, minimumBounceYVelocity);
+            projectileRadius = Mathf.Max(0.01f, collisionRadius);
+            cachedRigidbody = GetComponent<Rigidbody>();
             Destroy(gameObject, lifetime);
         }
 
@@ -214,10 +343,62 @@ public class MolotovAbility : Ability
                 return;
             }
 
+            if (allowTerrainBounce && !hasBounced && IsTerrainCollision(collision))
+            {
+                BounceOffTerrain(collision);
+                return;
+            }
+
             exploded = true;
             TryDamage(collision.collider.gameObject, impactDamage, new HashSet<Component>());
             Vector3 hitPoint = collision.contactCount > 0 ? collision.GetContact(0).point : transform.position;
             Explode(hitPoint);
+        }
+
+        private bool IsTerrainCollision(Collision collision)
+        {
+            Collider hitCollider = collision.collider;
+            if (hitCollider == null)
+            {
+                return false;
+            }
+
+            if (hitCollider.GetComponentInParent<BaseCharacter>() != null)
+            {
+                return false;
+            }
+
+            if (hitCollider.GetComponentInParent<BotBehaviour>() != null)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void BounceOffTerrain(Collision collision)
+        {
+            if (cachedRigidbody == null)
+            {
+                cachedRigidbody = GetComponent<Rigidbody>();
+            }
+
+            if (cachedRigidbody == null)
+            {
+                return;
+            }
+
+            hasBounced = true;
+            Vector3 normal = collision.contactCount > 0 ? collision.GetContact(0).normal : Vector3.up;
+            Vector3 reflectedVelocity = Vector3.Reflect(cachedRigidbody.linearVelocity, normal) * bounceVelocityMultiplier;
+            reflectedVelocity.y = Mathf.Max(reflectedVelocity.y, minimumBounceUpwardVelocity);
+            cachedRigidbody.linearVelocity = reflectedVelocity;
+
+            if (collision.contactCount > 0)
+            {
+                ContactPoint contact = collision.GetContact(0);
+                transform.position = contact.point + (normal * (projectileRadius + 0.03f));
+            }
         }
 
         private void Explode(Vector3 position)

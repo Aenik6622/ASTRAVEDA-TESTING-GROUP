@@ -83,6 +83,12 @@ public class WeaponLoadout : MonoBehaviour
         EquipSlot(activeSlot);
     }
 
+    public void EquipPrimaryWeapon()
+    {
+        loadoutLocked = false;
+        EquipSlot(0);
+    }
+
     private void EquipSlot(int slot)
     {
         if (weapons.Count == 0)
